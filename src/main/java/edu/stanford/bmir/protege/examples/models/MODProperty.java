@@ -8,7 +8,12 @@ import java.util.*;
 
 public class MODProperty {
     private final String type;
-    private final IRI IRI;
+
+    public void setIRI(org.semanticweb.owlapi.model.IRI IRI) {
+        this.IRI = IRI;
+    }
+
+    private IRI IRI;
     private final HashSet<String> label = new HashSet<>();
 
 

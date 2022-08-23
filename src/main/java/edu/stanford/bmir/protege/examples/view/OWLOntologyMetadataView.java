@@ -18,6 +18,7 @@ import org.protege.editor.owl.ui.view.AbstractOWLViewComponent;
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.formats.PrefixDocumentFormat;
 import org.semanticweb.owlapi.model.*;
+import org.semanticweb.owlapi.util.OWLOntologyChangeVisitorAdapter;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -29,6 +30,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.awt.image.ColorModel;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -54,7 +56,10 @@ public class OWLOntologyMetadataView extends AbstractOWLViewComponent {
 
     // private OWLOntologyAnnotationList list;
     private final AugmentedJTextField ontologyVersionIRIField = new AugmentedJTextField("e.g. http://www.example.com/ontologies/myontology/1.0.0");
-    //private final OWLOntologyChangeListener ontologyChangeListener = owlOntologyChanges -> myHandleOntologyChanges(owlOntologyChanges);
+    private final OWLOntologyChangeListener ontologyChangeListener = owlOntologyChanges -> myHandleOntologyChanges(owlOntologyChanges);
+
+
+
     private OWLModelManagerListener listener;
     private boolean updatingViewFromModel = false;
     private boolean updatingModelFromView = false;
@@ -87,11 +92,13 @@ public class OWLOntologyMetadataView extends AbstractOWLViewComponent {
 
         HashMap<MODProperty, List<String>> modProperties = mapModToActiveOntology(properties, activeOntology());
         showActiveOntologyModProperties(modProperties);
-  /*
+
         listener = event -> {
             try {
                 myHandleModelManagerChangeEvent(event);
             } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (OWLOntologyCreationException e) {
                 throw new RuntimeException(e);
             }
         };
@@ -100,7 +107,7 @@ public class OWLOntologyMetadataView extends AbstractOWLViewComponent {
         getOWLModelManager().addOntologyChangeListener(ontologyChangeListener);
 
         myUpdateView();
-        */
+
     }
 
     private HashMap<MODProperty, List<String>> mapModToActiveOntology(Set<MODProperty> properties, OWLOntology ontology) throws IOException, OWLOntologyCreationException {
@@ -114,18 +121,20 @@ public class OWLOntologyMetadataView extends AbstractOWLViewComponent {
                 }
                 for (OWLAnnotation annotation : annotations) {
                     String value = null;
-                    if (annotation.getProperty().getIRI().toURI().toString().equals(prop.getIRI().toString())) {
-                        OWLLiteral literal = annotation.getValue().asLiteral().orNull();
-                        IRI iri = annotation.getValue().asIRI().orNull();
-                        value = "";
-                        if (literal != null) {
-                            value = literal.getLiteral();
-                        } else if (iri != null) {
-                            value = iri.toString();
+                    for (OWLNamedIndividual individual : equivalentProperties) {
+                        if (annotation.getProperty().getIRI().toURI().toString().equals(individual.getIRI().toString())) {
+                            OWLLiteral literal = annotation.getValue().asLiteral().orNull();
+                            IRI iri = annotation.getValue().asIRI().orNull();
+                            value = "";
+                            if (literal != null) {
+                                value = literal.getLiteral();
+                            } else if (iri != null) {
+                                value = iri.toString();
+                            }
                         }
-                    }
-                     if (value != "" && value != null) {
-                        out.get(prop).add(value);
+                        if (value != "" && value != null) {
+                            out.get(prop).add(value);
+                        }
                     }
                 }
             }
@@ -215,7 +224,6 @@ private Map<String , String> prefixesMap() throws IOException, OWLOntologyCreati
                 centerPanel.add(new JTextArea(" "));
             }
         });
-        centerPanel.add(addMetadata,BorderLayout.WEST);
         if (values.size() == 0) {
             JTextArea area = new JTextArea();
             centerPanel.add(area);
@@ -227,8 +235,8 @@ private Map<String , String> prefixesMap() throws IOException, OWLOntologyCreati
         save.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                for (Component component : centerPanel.getComponents()){
-                 //RemoveOntologyAnnotation rm = new RemoveOntologyAnnotation(activeOntology())
+                for (Component component : centerPanel.getComponents()) {
+                    //RemoveOntologyAnnotation rm = new RemoveOntologyAnnotation(activeOntology())
                     if (component instanceof JTextArea) {
                         for (OWLAnnotation annotation : activeOntology().getAnnotations()) {
                             OWLLiteral literal = annotation.getValue().asLiteral().orNull();
@@ -254,16 +262,21 @@ private Map<String , String> prefixesMap() throws IOException, OWLOntologyCreati
                                     } catch (OWLOntologyStorageException e) {
                                         throw new RuntimeException(e);
                                     }
-
                                 }
                             }
                             addAnnotation((JTextArea) component, prop);
-                        }
+                            for (Component comp : centerPanel.getComponents()) {
+                                if (comp instanceof JTextArea) {
+                                    if (!values.contains(((JTextArea) component).getText())) {
+                                        values.add(((JTextArea) component).getText());
+                                    }
+                                }
+                            }
                         }
                     }
-                    }
 
-
+                }
+            }
 
         });
         centerPanel.setPreferredSize(new Dimension(100,100));
@@ -307,24 +320,18 @@ private Map<String , String> prefixesMap() throws IOException, OWLOntologyCreati
                         } catch (OWLOntologyStorageException e) {
                             throw new RuntimeException(e);
                         }
-                        for (OWLAnnotation annotation : activeOntology().getAnnotations()) {
+                      for (OWLAnnotation annotation : activeOntology().getAnnotations()) {
                             if (annotation.getProperty().getIRI().equals(prop.getIRI())) {
                                 RemoveOntologyAnnotation rm = new RemoveOntologyAnnotation(activeOntology(), annotation);
                                 activeOntology().getOWLOntologyManager().applyChange(rm);
                             }
-                            try {
-                                activeOntology().getOWLOntologyManager().saveOntology(activeOntology());
-                            } catch (OWLOntologyStorageException e) {
-                                throw new RuntimeException(e);
-                            }
+                          try {
+                              activeOntology().getOWLOntologyManager().saveOntology(activeOntology());
+                          } catch (OWLOntologyStorageException e) {
+                              throw new RuntimeException(e);
+                          }
                         }
-                        for (Component component : centerPanel.getComponents()){
-                            if (component instanceof  JRadioButton){
-                                if (!((JRadioButton) component).getText().equals(it.next()+indiv.toString())){
-                                    ((JRadioButton) component).setSelected(false);
-                                }
-                            }
-                        }
+                        prop.setIRI(indiv.getIRI());
                     }
                 });
             }
@@ -345,7 +352,7 @@ private Map<String , String> prefixesMap() throws IOException, OWLOntologyCreati
                         } catch (OWLOntologyStorageException e) {
                             throw new RuntimeException(e);
                         }
-                        for (OWLAnnotation annotation : activeOntology().getAnnotations()) {
+                       for (OWLAnnotation annotation : activeOntology().getAnnotations()) {
                             if (annotation.getProperty().getIRI().equals(prop.getIRI())) {
                                 RemoveOntologyAnnotation rm = new RemoveOntologyAnnotation(activeOntology(), annotation);
                                 activeOntology().getOWLOntologyManager().applyChange(rm);
@@ -356,13 +363,7 @@ private Map<String , String> prefixesMap() throws IOException, OWLOntologyCreati
                                 throw new RuntimeException(e);
                             }
                         }
-                        for (Component component : centerPanel.getComponents()){
-                            if (component instanceof  JRadioButton){
-                                if (!((JRadioButton) component).getText().equals(indiv.toString())){
-                                    ((JRadioButton) component).setSelected(false);
-                                }
-                            }
-                        }
+                        prop.setIRI(indiv.getIRI());
                     }
                 });
             }
@@ -379,8 +380,11 @@ private Map<String , String> prefixesMap() throws IOException, OWLOntologyCreati
         JScrollPane centerScroll = new JScrollPane(centerPanel, VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         centerScroll.setPreferredSize(new Dimension(100, 150));
         mainPanel.add(centerScroll);
+        southPanel.add(save,BorderLayout.WEST);
+        save.setMaximumSize(new Dimension(15,15));
+        southPanel.add(addMetadata,BorderLayout.WEST);
+        addMetadata.setMaximumSize(new Dimension(15,15));
         mainPanel.add(southPanel, BorderLayout.SOUTH);
-        mainPanel.add(save,BorderLayout.EAST);
         return mainPanel;
     }
 
@@ -504,11 +508,11 @@ private Map<String , String> prefixesMap() throws IOException, OWLOntologyCreati
     }
 
 
-   /* private void myHandleModelManagerChangeEvent(OWLModelManagerChangeEvent event) throws IOException {
+    private void myHandleModelManagerChangeEvent(OWLModelManagerChangeEvent event) throws IOException, OWLOntologyCreationException {
         if (isUpdateTriggeringEvent(event)) {
             myUpdateView();
         }
-    }*/
+    }
 
     private boolean isUpdateTriggeringEvent(OWLModelManagerChangeEvent event) {
         return event.isType(EventType.ACTIVE_ONTOLOGY_CHANGED) || event.isType(EventType.ONTOLOGY_LOADED) || event.isType(EventType.ONTOLOGY_RELOADED) || event.isType(EventType.ONTOLOGY_SAVED);
@@ -661,154 +665,26 @@ private Map<String , String> prefixesMap() throws IOException, OWLOntologyCreati
     }
 
 
-  /*  private void myHandleOntologyChanges(List<? extends OWLOntologyChange> changes) {
+    private void myHandleOntologyChanges(List<? extends OWLOntologyChange> changes) {
         for (OWLOntologyChange change : changes) {
             change.accept(new OWLOntologyChangeVisitorAdapter() {
                 @Override
                 public void visit(SetOntologyID change) {
                     try {
                         myUpdateView();
-                    } catch (IOException e) {
+                    } catch (IOException | OWLOntologyCreationException e) {
                         throw new RuntimeException(e);
                     }
                 }
             });
         }
     }
-*/
 
-  /*  private void myUpdateView() throws IOException {
+   private void myUpdateView() throws IOException, OWLOntologyCreationException {
+       HashMap<MODProperty, List<String>> modProperties = mapModToActiveOntology(properties, activeOntology());
+       showActiveOntologyModProperties(modProperties);
+   }
 
-        OntologyMetadataContainer root = new OntologyMetadataContainer();
-        BundleContext context = FrameworkUtil.getBundle(OWLOntologyMetadataView.class).getBundleContext();
-        URL url = context.getBundle().getResource("mod-v2.0_profile.ttl");
-
-        Set<MODProperty> properties = new HashSet<MODProperty>();
-        try {
-            properties = root.getModProperties(url.openConnection().getInputStream());
-        } catch (OWLOntologyCreationException e) {
-            e.printStackTrace();
-        }
-
-
-        Set<OWLAnnotation> annots = activeOntology().getAnnotations();
-
-
-        JPanel mainPanel = new JPanel();
-        mainPanel.setLayout(new GridLayout(0, 1, 25, 25));
-        mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
-
-
-        for (MODProperty prop : properties) {
-            JPanel panel = new JPanel(new GridLayout(0, 1));
-            panel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-
-            JPanel labelDesc = new JPanel(new GridLayout(1, 0, 5, 5));
-            JLabel label = new JLabel("<html>" + prop.getLabel().toString() + "</html>");
-            label.setFont(new Font("Serif", Font.PLAIN, 14));
-
-            //label.setPreferredSize(new Dimension(80,100));
-            label.setForeground(Color.BLACK);
-            JLabel description = new JLabel("<html>" + prop.getDescription() + "</html>");
-            description.setFont(new Font("Serif", Font.PLAIN, 14));
-            labelDesc.add(label);
-            labelDesc.add(description);
-            //panel.add(labelDesc,BorderLayout.NORTH);
-            //panel.add(label);
-            //panel.add(description,BorderLayout.EAST);
-            panel.add(labelDesc);
-            JPanel areaEdit = new JPanel(new GridLayout(1, 0, 5, 5));
-            JTextArea area = new JTextArea("Metadata Value");
-            for (OWLAnnotation annot : activeOntology().getAnnotations()) {
-                if (annot.getProperty().getIRI().toURI().toString().equals(prop.getIRI())) {
-                    area = new JTextArea(annot.toString());
-                }
-            }
-            JButton save = new JButton("Save");
-            JTextArea finalArea = area;
-            save.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent arg0) {
-                    String value = finalArea.getText();
-                    finalArea.setText(value);
-                }
-            });
-            areaEdit.add(finalArea);
-            //areaEdit.add(save,BorderLayout.LINE_END);
-            areaEdit.setBackground(Color.white);
-            areaEdit.setPreferredSize(new Dimension(50, 300));
-            panel.add(areaEdit);
-            JPanel eqProp = new JPanel();
-            eqProp.setLayout(new FlowLayout(FlowLayout.LEFT, 20, 20));
-            JLabel equivalentProperties = new JLabel("Equivalent Properties");
-            equivalentProperties.setFont(new Font(Font.SERIF, Font.ITALIC, 15));
-            eqProp.add(equivalentProperties);
-            eqProp.setBackground(Color.white);
-            for (OWLPropertyExpression dataProp : prop.getEquivalentProperty()) {
-                JRadioButton button = new JRadioButton(dataProp.toString());
-                button.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-                eqProp.add(button);
-            }
-            panel.add(eqProp, BorderLayout.SOUTH);
-            panel.setBackground(Color.white);
-            panel.setPreferredSize(new Dimension(100, 300));
-            mainPanel.add(panel);
-        }
-        for (OWLAnnotation annot : annots) {
-            for (MODProperty property : properties) {
-                if (!annot.getProperty().getIRI().toURI().toString().equals(property.getIRI())) {
-                    JPanel panel = new JPanel(new GridLayout(0, 1));
-                    panel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-                    JPanel labelDesc = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
-                    JLabel label = new JLabel(annot.getProperty().toString());
-                    label.setFont(new Font("Serif", Font.PLAIN, 14));
-                    label.setForeground(Color.BLACK);
-                    labelDesc.add(label);
-
-                    panel.add(labelDesc, BorderLayout.NORTH);
-                    JPanel areaEdit = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
-                    JLabel area = new JLabel();
-                    area = new JLabel(annot.getValue().toString());
-                    // area.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-                    JButton edit = new JButton("Edit Value");
-                    JLabel finalArea = area;
-                    edit.addActionListener(new ActionListener() {
-                        @Override
-                        public void actionPerformed(ActionEvent arg0) {
-                            String value = JOptionPane.showInputDialog("Enter your value");
-                            finalArea.setText(value);
-                        }
-                    });
-                    areaEdit.add(finalArea);
-                    areaEdit.add(edit);
-                    panel.add(areaEdit, BorderLayout.CENTER);
-                    panel.add(edit);
-                    panel.setBackground(Color.WHITE);
-                    mainPanel.add(panel);
-                }
-                break;
-            }
-        }
-        add(mainPanel);
-        JScrollPane scroll = new JScrollPane(mainPanel, VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        add(scroll);
-        listener = event -> {
-            try {
-                myHandleModelManagerChangeEvent(event);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        };
-        getOWLModelManager().addListener(listener);
-
-        getOWLModelManager().addOntologyChangeListener(ontologyChangeListener);
-
-
-        updateViewFromModel();
-    }
-*/
 
     protected void disposeOWLView() {
         //list.dispose();

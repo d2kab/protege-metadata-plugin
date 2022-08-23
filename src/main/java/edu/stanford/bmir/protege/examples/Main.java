@@ -49,9 +49,13 @@ public class Main {
 
 
         OWLOntology o = loadMod(url.openConnection().getInputStream());
-        for (OWLAnnotation annot : o.getAnnotations()){
-            System.out.println(annot.getValue().toString());
+
+        for (MODProperty prop : properties){
+            for (OWLNamedIndividual indiv : prop.getEquivalentProperty()){
+                System.out.println(indiv.toString());
+            }
         }
+
         /*
        OWLOntologyManager man = o.getOWLOntologyManager();
         addDataPropertyCopies(o,man);
