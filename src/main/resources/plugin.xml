@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?eclipse version="3.0"?>
+
+<plugin>
+
+	<!-- Tabs -->
+
+	<extension id="MetadataTab" point="org.protege.editor.core.application.WorkspaceTab">
+		<label value="MetadataTab"/>
+		<class value="edu.stanford.bmir.protege.examples.tab.MetadataTab"/>
+		<index value="Z"/>
+		<editorKitId value="OWLEditorKit"/>
+		<defaultViewConfigFileName value="viewconfig-metadatatab.xml"/>
+	</extension>
+
+	<!-- View -->
+
+	<extension id="OWLOntologyMetadata" point="org.protege.editor.core.application.ViewComponent">
+		<label value="Ontology Metadata View"/>
+		<class value="edu.stanford.bmir.protege.examples.view.OWLOntologyMetadataView"/>
+		<headerColor value="@org.protege.ontologycolor"/>
+		<category value="@org.protege.ontologycategory"/>
+	</extension>
+
+	<extension id="Test" point="org.protege.editor.core.application.ViewComponent">
+		<label value="Test View"/>
+		<class value="edu.stanford.bmir.protege.examples.view.TestView"/>
+		<headerColor value="@org.protege.ontologycolor"/>
+		<category value="@org.protege.ontologycategory"/>
+	</extension>
+
+
+
+
+
+</plugin>

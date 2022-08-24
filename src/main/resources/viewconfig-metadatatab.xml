@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<layout>
+    <VSNode splits="1">
+        <CNode>
+            <Component label="Ontology Metadata">
+                <Property id="pluginId" value="protege.plugin.examples.OWLOntologyMetadata"/>
+            </Component>
+        </CNode>
+    </VSNode>
+</layout>
+
