@@ -9,9 +9,7 @@ import java.util.*;
 public class MODProperty {
     private final String type;
 
-    public void setIRI(org.semanticweb.owlapi.model.IRI IRI) {
-        this.IRI = IRI;
-    }
+
 
     private IRI IRI;
     private final HashSet<String> label = new HashSet<>();
@@ -77,6 +75,9 @@ public class MODProperty {
 
     public HashSet<String> getLabel() {
         return label;
+    }
+    public void setIRI(org.semanticweb.owlapi.model.IRI IRI) {
+        this.IRI = IRI;
     }
 
 
